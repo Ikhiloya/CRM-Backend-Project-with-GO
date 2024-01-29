@@ -3,14 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
-	"strconv"
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 type Customer struct {
-	Id        int    `json:"id"`
+	Id        uuid.UUID    `json:"id"`
 	Name      string `json:"name"`
 	Role      string `json:"role"`
 	Email     string `json:"email"`
@@ -21,7 +21,7 @@ type Customer struct {
 // dummy database of customers
 var customers = []Customer{
 	{
-		Id:        1,
+		Id:        uuid.New(),
 		Name:      "John Doe",
 		Role:      "Project Manager",
 		Email:     "john.doe@gmail.com",
@@ -29,7 +29,7 @@ var customers = []Customer{
 		Contacted: true,
 	},
 	{
-		Id:        2,
+		Id:         uuid.New(),
 		Name:      "Charles Darwin",
 		Role:      "Solutions Architect",
 		Email:     "charles.darwin@gmail.com",
@@ -37,7 +37,7 @@ var customers = []Customer{
 		Contacted: false,
 	},
 	{
-		Id:        3,
+		Id:         uuid.New(),
 		Name:      "Nick Tes",
 		Role:      "Software Engineer",
 		Email:     "nick.tes@gmail.com",
@@ -55,7 +55,7 @@ func getCustomer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	//convert string to int
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	id, err := uuid.Parse(mux.Vars(r)["id"])
 	fmt.Println("id ", id)
 	if err != nil {
 		//executes if there is any error
@@ -83,8 +83,8 @@ func deleteElement(slice []Customer, index int) []Customer {
 
 func deleteCustomer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	//convert string to int
-	id, err := strconv.Atoi(mux.Vars(r)["id"])
+	//convert string to uuid
+	id, err := uuid.Parse((mux.Vars(r)["id"]))
 	fmt.Println("id ", id)
 	if err != nil {
 		//executes if there is any error
@@ -154,29 +154,20 @@ func addCustomer(w http.ResponseWriter, r *http.Request) {
 
 	//check if id of new customer exists
 	fmt.Println("parsed id ", newCustomer)
-	var customerExist = customerExist(newCustomer.Id)
+	newCustomer.Id = uuid.New()
 
-	if !customerExist {
 		customers = append(customers, newCustomer)
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(customers)
-	} else {
-		w.WriteHeader(http.StatusConflict)
-	}
+	
 }
 
-func customerExist(id int) bool {
-	for _, customer := range customers {
-		if customer.Id == id {
-			return true
-		}
-	}
-	return false
-}
 
 func main() {
 	// Instantiate a new router
 	router := mux.NewRouter()
+	fileServer := http.FileServer(http.Dir("./static"))
+
 	// Register handler functions to the same path -- but with different methods
 	// E.g., only a GET request to /dictionary can invoke the "getDictionary" handler function
 	router.HandleFunc("/customers", getCustomers).Methods("GET")
@@ -185,7 +176,7 @@ func main() {
 	router.HandleFunc("/customers", addCustomer).Methods("POST")
 	router.HandleFunc("/customers", updateCustomer).Methods("PUT")
 
-	//  router.HandleFunc("/dictionary", create).Methods("POST")
+	router.PathPrefix("/").Handler(fileServer)
 
 	fmt.Println("Server is starting on port 3000...")
 	// Pass the customer router into ListenAndServe
